@@ -1,0 +1,3 @@
+*.mdb
+*.venv/
+*.vscode/
