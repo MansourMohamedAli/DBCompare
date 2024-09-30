@@ -35,17 +35,24 @@ def compare_column_differences(df1, df2, table_name, columns_to_compare, output_
     merged = pd.merge(df1, df2, on=merge_on, how='outer', indicator=True)
 
     # Separate out rows that differ between the two DataFrames
-    differences = merged[merged['_merge'] != 'both']
+    new_in_db1 = merged[merged['_merge'] == 'left_only']
+    new_in_db2 = merged[merged['_merge'] == 'right_only']
 
-    if not differences.empty:
-        with open(output_file, 'a') as f:
-            f.write(f"Differences found in table '{table_name}' for columns: {', '.join(columns_to_compare)}\n")
-            f.write("Full row differences:\n")
-            f.write(differences.to_string(index=False))
+    # Write the results to the output file
+    with open(output_file, 'a') as f:
+        if not new_in_db1.empty:
+            f.write(f"New entries in table '{table_name}' found only in db1:\n")
+            f.write(new_in_db1.to_string(index=False))
             f.write("\n\n")
-    else:
-        with open(output_file, 'a') as f:
-            f.write(f"No differences in table '{table_name}' for specified columns: {', '.join(columns_to_compare)}\n\n")
+        else:
+            f.write(f"No new entries in table '{table_name}' found only in db1.\n\n")
+
+        if not new_in_db2.empty:
+            f.write(f"New entries in table '{table_name}' found only in db2:\n")
+            f.write(new_in_db2.to_string(index=False))
+            f.write("\n\n")
+        else:
+            f.write(f"No new entries in table '{table_name}' found only in db2.\n\n")
 
 # Main comparison function
 def compare_databases(db1_path, db2_path, output_file, table_name, columns_to_compare):
