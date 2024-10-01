@@ -32,24 +32,24 @@ def compare_column_differences(df1, df2, table_name, columns_to_compare, output_
 
     # Merge the two DataFrames based on the specified columns to compare
     merge_on = columns_to_compare
-    merged = pd.merge(df1, df2, on=merge_on, how='outer', indicator=True)
+    merged = pd.merge(df1, df2, on=merge_on, how='outer', indicator=True, suffixes=('', ''))
 
     # Separate out rows that differ between the two DataFrames
-    new_in_db1 = merged[merged['_merge'] == 'left_only'].dropna(axis=1,how='all')
-    new_in_db2 = merged[merged['_merge'] == 'right_only'].dropna(axis=1,how='all')
-    
+    new_in_db1 = merged[merged['_merge'] == 'left_only']
+    new_in_db2 = merged[merged['_merge'] == 'right_only']
+
     # Write the results to the output file
     with open(output_file, 'a') as f:
         if not new_in_db1.empty:
             f.write(f"New entries in table '{table_name}' found only in db1:\n")
-            f.write(new_in_db1.to_string(index=False))
+            f.write(new_in_db1.drop(columns=['_merge']).to_string(index=False))
             f.write("\n\n")
         else:
             f.write(f"No new entries in table '{table_name}' found only in db1.\n\n")
 
         if not new_in_db2.empty:
             f.write(f"New entries in table '{table_name}' found only in db2:\n")
-            f.write(new_in_db2.to_string(index=False))
+            f.write(new_in_db2.drop(columns=['_merge']).to_string(index=False))
             f.write("\n\n")
         else:
             f.write(f"No new entries in table '{table_name}' found only in db2.\n\n")
@@ -84,9 +84,9 @@ def main():
     parser = argparse.ArgumentParser(description="Compare two MDB databases and write differences to a file.")
     parser.add_argument("db1", help="File name of the first MDB database")
     parser.add_argument("db2", help="File name of the second MDB database")
-    parser.add_argument("--table", help="Table name to compare (default: vars)", default="vars")
-    parser.add_argument("--columns", nargs='+', help="List of columns to compare for differences (default: f_ptid)", default="f_ptid")
+    parser.add_argument("--table", help="Table name to compare", required=True)
     parser.add_argument("--output", help="File to write the differences (default: differences.txt)", default="differences.txt")
+    parser.add_argument("--columns", nargs='+', help="List of columns to compare for differences", required=True)
 
     args = parser.parse_args()
 
