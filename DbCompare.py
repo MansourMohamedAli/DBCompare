@@ -25,7 +25,7 @@ def read_table(connection, table_name):
     return pd.read_sql(query, connection)
 
 # Function to compare two DataFrames for specific column differences but return all columns in the output
-def compare_column_differences(df1, df2, table_name, columns_to_compare, output_file):
+def compare_column_differences(df1, df2, table_name, columns_to_compare, output_file, db1_name, db2_name):
     # Add a source column to identify the origin of each row
     df1['source'] = 'db1'
     df2['source'] = 'db2'
@@ -37,25 +37,80 @@ def compare_column_differences(df1, df2, table_name, columns_to_compare, output_
     # Separate out rows that differ between the two DataFrames
     new_in_db1 = merged[merged['_merge'] == 'left_only'].dropna(axis=1,how='all')
     new_in_db2 = merged[merged['_merge'] == 'right_only'].dropna(axis=1,how='all')
+
+    headings_list = list()
+    for heading in new_in_db1.columns.values:
+        if heading == "f_ptid" or heading == "_merge":
+            headings_list.append(heading)
+        else:
+            headings_list.append(heading[:-2])
+    new_in_db1.columns = headings_list
+
+    headings_list = list()
+    for heading in new_in_db2.columns.values:
+        if heading == "f_ptid" or heading == "_merge":
+            headings_list.append(heading)
+        else:
+            headings_list.append(heading[:-2])
+    new_in_db2.columns = headings_list
     
     # Write the results to the output file
     with open(output_file, 'a') as f:
         if not new_in_db1.empty:
-            f.write(f"New entries in table '{table_name}' found only in db1:\n")
+            f.write(f"New entries in table '{table_name}' found only in {db1_name}:\n")
             f.write(new_in_db1.to_string(index=False))
             f.write("\n\n")
         else:
-            f.write(f"No new entries in table '{table_name}' found only in db1.\n\n")
+            f.write(f"No new entries in table '{table_name}' found only in {db1_name}.\n\n")
 
         if not new_in_db2.empty:
-            f.write(f"New entries in table '{table_name}' found only in db2:\n")
+            f.write(f"New entries in table '{table_name}' found only in {db2_name}:\n")
             f.write(new_in_db2.to_string(index=False))
             f.write("\n\n")
         else:
-            f.write(f"No new entries in table '{table_name}' found only in db2.\n\n")
+            f.write(f"No new entries in table '{table_name}' found only in {db2_name}.\n\n")
+    
+    if not new_in_db1.empty:
+        create_add_file(new_in_db1, db1_name)
+    if not new_in_db2.empty:
+        create_add_file(new_in_db2, db2_name)
+
+
+
+def create_add_file(db, db_name):
+        with open(f"{db_name}.add", 'w') as f:
+            for row in db.itertuples(index=True, name='Pandas'):
+                # f.write(f'add {row.f_ptid}{row.f_brief}')
+                f.write(
+f'''add {row.f_ptid}
+.desc {row.f_brief}
+{row.f_ldes}
+.units {row.f_unit}
+.type {row.f_dtype}*{int(row.f_precs)}
+.valu {row.f_value}
+.dim {int(row.f_dim1)}, {int(row.f_dim2)}, {int(row.f_dim3)}
+.pred {row.f_pred}
+
+''')
+
+#     with open(f"{db1_name[:-4]}.add", 'w') as f:
+#         for row in new_in_db1.itertuples(index=True, name='Pandas'):
+#             # f.write(f'add {row.f_ptid}{row.f_brief}')
+#             f.write(
+# f'''add {row.f_ptid}
+# .desc {row.f_brief}
+# {row.f_ldes}
+# .units {row.f_unit}
+# .type {row.f_dtype}*{int(row.f_precs)}
+# .valu {row.f_value}
+# .dim {int(row.f_dim1)}, {int(row.f_dim2)}, {int(row.f_dim3)}
+# .pred {row.f_pred}
+
+# ''')
+        
 
 # Main comparison function
-def compare_databases(db1_path, db2_path, output_file, table_name, columns_to_compare):
+def compare_databases(db1_path, db2_path, output_file, table_name, columns_to_compare, db1_name, db2_name):
     # Connect to both databases
     conn1 = connect_to_mdb(db1_path)
     conn2 = connect_to_mdb(db2_path)
@@ -73,11 +128,14 @@ def compare_databases(db1_path, db2_path, output_file, table_name, columns_to_co
     # Compare the specified table
     df1 = read_table(conn1, table_name)
     df2 = read_table(conn2, table_name)
-    compare_column_differences(df1, df2, table_name, columns_to_compare, output_file)
+    compare_column_differences(df1, df2, table_name, columns_to_compare, output_file, db1_name, db2_name)
 
     # Close the connections
     conn1.close()
     conn2.close()
+
+# def create_add_file():
+#     for item in new_in_db1
 
 # Argument parser to accept database paths as positional arguments
 def main():
@@ -102,7 +160,7 @@ def main():
     open(output_file, 'w').close()
 
     # Compare the databases
-    compare_databases(db1_path, db2_path, output_file, args.table, args.columns)
+    compare_databases(db1_path, db2_path, output_file, args.table, args.columns, args.db1, args.db2)
 
 if __name__ == "__main__":
     main()
