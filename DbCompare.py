@@ -84,9 +84,9 @@ def main():
     parser = argparse.ArgumentParser(description="Compare two MDB databases and write differences to a file.")
     parser.add_argument("db1", help="File name of the first MDB database")
     parser.add_argument("db2", help="File name of the second MDB database")
-    parser.add_argument("--table", help="Table name to compare", required=True)
+    parser.add_argument("--table", help="Table name to compare (default: vars)", default="vars")
+    parser.add_argument("--columns", nargs='+', help="List of columns to compare for differences (default: f_ptid)", default="f_ptid")
     parser.add_argument("--output", help="File to write the differences (default: differences.txt)", default="differences.txt")
-    parser.add_argument("--columns", nargs='+', help="List of columns to compare for differences", required=True)
 
     args = parser.parse_args()
 
