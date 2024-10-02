@@ -40,18 +40,22 @@ def compare_column_differences(df1, df2, table_name, columns_to_compare, output_
 
     headings_list = list()
     for heading in new_in_db1.columns.values:
-        if heading == "f_ptid" or heading == "_merge":
+        # if heading == "f_ptid" or heading == "_merge":
+        if heading in columns_to_compare or heading == "_merge":
             headings_list.append(heading)
         else:
             headings_list.append(heading[:-2])
+            # headings_list.append(heading)
     new_in_db1.columns = headings_list
 
     headings_list = list()
     for heading in new_in_db2.columns.values:
-        if heading == "f_ptid" or heading == "_merge":
+        # if heading == "f_ptid" or heading == "_merge":
+        if heading in columns_to_compare or heading == "_merge":
             headings_list.append(heading)
         else:
             headings_list.append(heading[:-2])
+            # headings_list.append(heading)
     new_in_db2.columns = headings_list
     
     # Write the results to the output file
@@ -71,44 +75,28 @@ def compare_column_differences(df1, df2, table_name, columns_to_compare, output_
             f.write(f"No new entries in table '{table_name}' found only in {db2_name}.\n\n")
     
     if not new_in_db1.empty:
-        create_add_file(new_in_db1, db1_name)
+        create_add_file(new_in_db1, db1_name[:-4])
+        
     if not new_in_db2.empty:
-        create_add_file(new_in_db2, db2_name)
-
+        create_add_file(new_in_db2, db2_name[:-4])
 
 
 def create_add_file(db, db_name):
         with open(f"{db_name}.add", 'w') as f:
             for row in db.itertuples(index=True, name='Pandas'):
-                # f.write(f'add {row.f_ptid}{row.f_brief}')
-                f.write(
-f'''add {row.f_ptid}
-.desc {row.f_brief}
-{row.f_ldes}
-.units {row.f_unit}
-.type {row.f_dtype}*{int(row.f_precs)}
-.valu {row.f_value}
-.dim {int(row.f_dim1)}, {int(row.f_dim2)}, {int(row.f_dim3)}
-.pred {row.f_pred}
-
-''')
-
-#     with open(f"{db1_name[:-4]}.add", 'w') as f:
-#         for row in new_in_db1.itertuples(index=True, name='Pandas'):
-#             # f.write(f'add {row.f_ptid}{row.f_brief}')
-#             f.write(
-# f'''add {row.f_ptid}
-# .desc {row.f_brief}
-# {row.f_ldes}
-# .units {row.f_unit}
-# .type {row.f_dtype}*{int(row.f_precs)}
-# .valu {row.f_value}
-# .dim {int(row.f_dim1)}, {int(row.f_dim2)}, {int(row.f_dim3)}
-# .pred {row.f_pred}
-
-# ''')
-        
-
+                f.write(f'add {row.f_ptid}\n')
+                f.write(f'.desc {row.f_brief}\n')
+                f.write(f'{row.f_ldes}\n')
+                f.write(f'.units {row.f_unit}\n')
+                f.write(f'.type {row.f_dtype}*{int(row.f_precs)}\n')
+                try:
+                    f.write(f'.valu {row.f_value}\n')
+                    f.write(f'.dim {int(row.f_dim1)}, {int(row.f_dim2)}, {int(row.f_dim3)}\n')
+                    f.write(f'.pred {row.f_pred}\n\n')
+                except AttributeError: # No Value
+                    f.write(f'.dim {int(row.f_dim1)}, {int(row.f_dim2)}, {int(row.f_dim3)}\n')
+                    f.write(f'.pred {row.f_pred}\n\n')                    
+                
 # Main comparison function
 def compare_databases(db1_path, db2_path, output_file, table_name, columns_to_compare, db1_name, db2_name):
     # Connect to both databases
@@ -134,16 +122,15 @@ def compare_databases(db1_path, db2_path, output_file, table_name, columns_to_co
     conn1.close()
     conn2.close()
 
-# def create_add_file():
-#     for item in new_in_db1
-
 # Argument parser to accept database paths as positional arguments
 def main():
     parser = argparse.ArgumentParser(description="Compare two MDB databases and write differences to a file.")
     parser.add_argument("db1", help="File name of the first MDB database")
     parser.add_argument("db2", help="File name of the second MDB database")
     parser.add_argument("--table", help="Table name to compare (default: vars)", default="vars")
-    parser.add_argument("--columns", nargs='+', help="List of columns to compare for differences (default: f_ptid)", default="f_ptid")
+    parser.add_argument("--columns", nargs='+', help="List of columns to compare for differences \
+                        (default:f_ptid, f_brief, f_dtype, f_precs, f_unit, f_value, f_pred, f_dim1, f_dim2, f_dim3, f_size, f_ldes)",
+                        default=["f_ptid","f_brief","f_dtype","f_precs","f_unit","f_value","f_pred","f_dim1","f_dim2","f_dim3","f_size","f_ldes"])
     parser.add_argument("--output", help="File to write the differences (default: differences.txt)", default="differences.txt")
 
     args = parser.parse_args()
@@ -155,6 +142,9 @@ def main():
     db1_path = os.path.join(current_dir, args.db1)
     db2_path = os.path.join(current_dir, args.db2)
     output_file = os.path.join(current_dir, args.output)
+    # print(args.columns)
+    # columns = args.columns.join(",")
+    # print(columns)
 
     # Clear the output file if it already exists
     open(output_file, 'w').close()
