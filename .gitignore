@@ -1,3 +1,4 @@
 *.mdb
 *.venv/
 *.vscode/
+*.ldb
