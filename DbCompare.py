@@ -3,15 +3,17 @@ import pyodbc
 import pandas as pd
 import argparse
 
-# Function to connect to an Access Database (.mdb)
-def connect_to_mdb(db_path):
-    # Change DRIVER based on the architecture of your Office installation (32-bit vs 64-bit)
-    conn_str = (
-        r'DRIVER={Microsoft Access Driver (*.mdb, *.accdb)};'
-        r'DBQ=' + db_path + ';'
-    )
-    return pyodbc.connect(conn_str)
 
+def get_driver() -> str:
+    driver_names = [x for x in pyodbc.drivers() if "*.mdb" in x]
+    if driver_names:
+        return driver_names[0]
+
+# Function to connect to an Access Database (.mdb)
+def connect_to_mdb(db_path:str):
+    conn_str = r'DRIVER={}; DBQ={};'.format(get_driver(), db_path)
+    return pyodbc.connect(conn_str)
+    
 # Function to retrieve table names from the database
 def get_table_names(connection):
     cursor = connection.cursor()
@@ -141,7 +143,7 @@ def main():
     parser.add_argument("db2", help="File name of the second MDB database")
     parser.add_argument("--table", help="Table name to compare", required=True)
     # parser.add_argument("--column", help="Column to compare for differences (default: f_ptid)", default="f_ptid")
-    parser.add_argument("--output", help="File to write the differences (default: differences.txt)", default="differences.txt")
+    parser.add_argument("--output", help="File to write the differences (default: differences.txt)", default="diff-report.txt")
 
     args = parser.parse_args()
 
