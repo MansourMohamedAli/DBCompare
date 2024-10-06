@@ -1,39 +1,39 @@
 import os
-import pyodbc
+import pyodbc as dbc
 import pandas as pd
 import argparse
 
 
 def get_driver() -> str:
-    driver_names = [x for x in pyodbc.drivers() if "*.mdb" in x]
+    driver_names = [x for x in dbc.drivers() if "*.mdb" in x]
     if driver_names:
         return driver_names[0]
 
 # Function to connect to an Access Database (.mdb)
-def connect_to_mdb(db_path:str):
+def connect_to_mdb(db_path:str) -> dbc.Connection:
     conn_str = r'DRIVER={}; DBQ={};'.format(get_driver(), db_path)
-    return pyodbc.connect(conn_str)
+    return dbc.connect(conn_str)
     
 # Function to retrieve table names from the database
-def get_table_names(connection):
+def get_table_names(connection:dbc.Connection) -> list:
     cursor = connection.cursor()
     cursor.tables()
     tables = [row.table_name for row in cursor if row.table_type == 'TABLE']
     return tables
 
 # Function to read a table into a pandas DataFrame
-def read_table(connection, table_name):
+def read_table(connection:dbc.Connection, table_name:list) -> pd.DataFrame:
     query = f"SELECT * FROM [{table_name}]"
     return pd.read_sql(query, connection)
 
 # Function to compare two DataFrames for specific column differences but return all columns in the output
-def compare_column_differences(df1, df2, table_name, output_file, db1_name, db2_name):
+def compare_column_differences(df1:pd.DataFrame, df2:pd.DataFrame, table_name:list, column:str, output_file:str, db1_name:str, db2_name:str):
     # Add a source column to identify the origin of each row
     df1['source'] = 'db1'
     df2['source'] = 'db2'
 
     # Merge the two DataFrames based on the specified columns to compare
-    merge_on = df1.columns[0]
+    merge_on = column
     merged = pd.merge(df1, df2, on=merge_on, how='outer', indicator=True)
 
     # Separate out rows that differ between the two DataFrames
@@ -79,7 +79,7 @@ def compare_column_differences(df1, df2, table_name, output_file, db1_name, db2_
         create_add_file(new_in_db2, db2_name[:-4])
 
 
-def create_add_file(db, db_name):
+def create_add_file(db:pd.DataFrame, db_name:str)->None:
         with open(f"{db_name}.add", 'w') as f:
             for row in db.itertuples(index=True, name='Pandas'):
                 f.write(f'add {row.f_ptid}\n')
@@ -112,7 +112,7 @@ def create_add_file(db, db_name):
                 f.write(f'.pred {row.f_pred}\n\n')                    
                 
 # Main comparison function
-def compare_databases(db1_path, db2_path, output_file, table_name, db1_name, db2_name):
+def compare_databases(db1_path, db2_path, output_file, table_name, column, db1_name, db2_name):
     # Connect to both databases
     conn1 = connect_to_mdb(db1_path)
     conn2 = connect_to_mdb(db2_path)
@@ -130,11 +130,23 @@ def compare_databases(db1_path, db2_path, output_file, table_name, db1_name, db2
     # Compare the specified table
     df1 = read_table(conn1, table_name)
     df2 = read_table(conn2, table_name)
-    compare_column_differences(df1, df2, table_name, output_file, db1_name, db2_name)
+    if not column:
+        column = df1.columns.values[0]
+    compare_column_differences(df1, df2, table_name, column, output_file, db1_name, db2_name)
+
 
     # Close the connections
     conn1.close()
     conn2.close()
+
+# def get_column_name(df1:pd.DataFrame,df2:pd.DataFrame, index:int) -> str:
+#     df1_col_name, df2_col_name = df1.columns.values[index], df2.columns.values[index]
+#     if df1_col_name != df2_col_name:
+#         print(f'Index {index} have different column headings.')
+#     print(df1)
+#     return df1_col_name
+    
+
 
 # Argument parser to accept database paths as positional arguments
 def main():
@@ -142,8 +154,8 @@ def main():
     parser.add_argument("db1", help="File name of the first MDB database")
     parser.add_argument("db2", help="File name of the second MDB database")
     parser.add_argument("--table", help="Table name to compare", required=True)
-    # parser.add_argument("--column", help="Column to compare for differences (default: f_ptid)", default="f_ptid")
-    parser.add_argument("--output", help="File to write the differences (default: differences.txt)", default="diff-report.txt")
+    parser.add_argument("--column", help="Column name", default=None)
+    parser.add_argument("--output", help="File to write the differences (default: differences.txt)", default="diffreport.txt")
 
     args = parser.parse_args()
 
@@ -159,8 +171,7 @@ def main():
     open(output_file, 'w').close()
 
     # Compare the databases
-    # compare_databases(db1_path, db2_path, output_file, "vars", "f_ptid", args.db1, args.db2)
-    compare_databases(db1_path, db2_path, output_file, args.table, args.db1, args.db2)
+    compare_databases(db1_path, db2_path, output_file, args.table, args.column, args.db1, args.db2)
 
 if __name__ == "__main__":
     main()
