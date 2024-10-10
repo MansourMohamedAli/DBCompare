@@ -1,4 +1,21 @@
-*.mdb
+# Pyinstaller executable
+dist/
+build/
+*.spec
+*.exe
+
+# Python Virtual Environment
 *.venv/
+
+# Visual Studio
 *.vscode/
+
+
+# Database files
+*.mdb
 *.ldb
+
+
+# Output
+diffreport.txt
+*.add
